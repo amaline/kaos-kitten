@@ -8,7 +8,7 @@ defaultId=""
 defaultPw=""
 defaultApiEndpoint="https://api.cloud.gov"
 
-api = str(raw_input("Enter api endpoint [{1}]: ".format(defaultApiEndpoint)) or defaultApiEndpoint)
+api = str(raw_input("Enter api endpoint [{0}]: ".format(defaultApiEndpoint)) or defaultApiEndpoint)
 info = api + "/v2/info"
 infoResponse = requests.get(info)
 auth=infoResponse.json()['authorization_endpoint']
