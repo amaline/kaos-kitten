@@ -3,10 +3,19 @@ import getpass
 import sys
 import random
 import time
+import signal
+
+def signal_handler(signal, frame):
+        print('\n\nThank you for using Kaos-Kitten.\nAny instances still down should be restarted by Cloud Foundry within two minutes.\nHave a resilient day!')
+        sys.exit(0)
+        
+signal.signal(signal.SIGINT, signal_handler)
 
 defaultId=""
 defaultPw=""
 defaultApiEndpoint="https://api.cloud.gov"
+
+print "Press Ctrl-C to exit at any time.\n"
 
 api = str(raw_input("Enter api endpoint [{0}]: ".format(defaultApiEndpoint)) or defaultApiEndpoint)
 info = api + "/v2/info"
@@ -16,18 +25,34 @@ auth=infoResponse.json()['authorization_endpoint']
 print 'info endpoint: ', info
 print 'auth endpoint: ', auth
 
-id = str(raw_input("Enter user id: ") or defaultId)
-p = str(getpass.getpass(stream=sys.stderr) or defaultPw)
-
-oauthTokenResponse = requests.post(
-    auth + '/oauth/token?grant_type=password&client_id=cf', 
-    data={'username': id, 'password': p, 'client_id': 'cf'},
-    auth=('cf', '')
-)
-authorization = oauthTokenResponse.json()['token_type'] + ' ' + oauthTokenResponse.json()['access_token']
+loginFailed=True
+while loginFailed:
+    id = str(raw_input("Enter user id [{0}]: ".format(defaultId)) or defaultId)
+    defaultId=id
+    p = str(getpass.getpass(stream=sys.stderr) or defaultPw)
+    try:
+        oauthTokenResponse = requests.post(
+            auth + '/oauth/token?grant_type=password&client_id=cf', 
+            data={'username': id, 'password': p, 'client_id': 'cf'},
+            auth=('cf', '')
+        )
+        if oauthTokenResponse.status_code != 200:
+            print "Invalid ID or PW; Login Status Code=",oauthTokenResponse.status_code
+            loginFailed=True
+        else:
+            authorization = oauthTokenResponse.json()['token_type'] + ' ' + oauthTokenResponse.json()['access_token']
+            loginFailed=False
+    except requests.exceptions.RequestException as e:
+        print e
+        
 requestHeaders={'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': authorization}
-appsResponse = requests.get(api + "/v2/apps",headers=requestHeaders)
-
+try:
+    appsResponse = requests.get(api + "/v2/apps",headers=requestHeaders)
+except requests.exeptions.RequestException as e:
+    print "Failed to get list of applications"
+    print e
+    sys.exit(status=100)
+    
 resources=appsResponse.json()['resources']
 
 
